@@ -84,7 +84,7 @@ class CreateLifeEvent extends BaseService
                 'initial_date' => $date->toDateString(),
                 'frequency_type' => 'year',
                 'frequency_number' => 1,
-                'title' => $lifeEvent->lifeEventType->name,
+                'title' => $this->getReminderTitle($lifeEvent->lifeEventType),
                 'description' => null,
             ];
 
@@ -93,5 +93,21 @@ class CreateLifeEvent extends BaseService
             $lifeEvent->reminder_id = $reminder->id;
             $lifeEvent->save();
         }
+    }
+
+    /**
+     * Get the title of the reminder.
+     * Default life event types have no name, only a translation key.
+     *
+     * @param  LifeEventType  $lifeEventType
+     * @return string
+     */
+    private function getReminderTitle(LifeEventType $lifeEventType): string
+    {
+        if (! empty($lifeEventType->name)) {
+            return $lifeEventType->name;
+        }
+
+        return trans('people.life_event_sentence_'.$lifeEventType->default_life_event_type_key);
     }
 }
