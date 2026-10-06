@@ -6,10 +6,12 @@ use App\Domains\Vault\ManageJournals\Services\AddContactToPost;
 use App\Exceptions\NotEnoughPermissionException;
 use App\Models\Account;
 use App\Models\Contact;
+use App\Models\ContactFeedItem;
 use App\Models\Journal;
 use App\Models\Post;
 use App\Models\User;
 use App\Models\Vault;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +34,56 @@ class AddContactToPostTest extends TestCase
         ]);
 
         $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+    }
+
+    /** @test */
+    public function it_doesnt_log_the_contact_again_if_already_in_the_post(): void
+    {
+        $regis = $this->createUser();
+        $vault = $this->createVault($regis->account);
+        $vault = $this->setPermissionInVault($regis, Vault::PERMISSION_EDIT, $vault);
+        $contact = Contact::factory()->create(['vault_id' => $vault->id]);
+        $journal = Journal::factory()->create(['vault_id' => $vault->id]);
+        $post = Post::factory()->create([
+            'journal_id' => $journal->id,
+        ]);
+
+        $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+        $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+
+        $this->assertEquals(
+            1,
+            ContactFeedItem::where('contact_id', $contact->id)
+                ->where('action', ContactFeedItem::ACTION_ADDED_TO_POST)
+                ->count()
+        );
+    }
+
+    /** @test */
+    public function it_logs_the_contact_added_to_the_post(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 1, 1));
+        $regis = $this->createUser();
+        $vault = $this->createVault($regis->account);
+        $vault = $this->setPermissionInVault($regis, Vault::PERMISSION_EDIT, $vault);
+        $contact = Contact::factory()->create(['vault_id' => $vault->id]);
+        $journal = Journal::factory()->create(['vault_id' => $vault->id]);
+        $post = Post::factory()->create([
+            'journal_id' => $journal->id,
+            'title' => 'My trip',
+        ]);
+
+        $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+
+        $this->assertDatabaseHas('contact_feed_items', [
+            'author_id' => $regis->id,
+            'contact_id' => $contact->id,
+            'action' => ContactFeedItem::ACTION_ADDED_TO_POST,
+            'description' => 'My trip',
+            'feedable_id' => $post->id,
+            'feedable_type' => Post::class,
+        ]);
+        $this->assertEquals('2026-01-01 00:00:00', $contact->fresh()->last_updated_at->format('Y-m-d H:i:s'));
     }
 
     /** @test */
