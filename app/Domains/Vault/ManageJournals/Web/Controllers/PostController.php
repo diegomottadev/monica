@@ -126,21 +126,15 @@ class PostController extends Controller
             $post->contacts()->whereNotIn('contacts.id', $contactIds)->pluck('contacts.id')
         );
 
-        if ($request->input('contacts')) {
-            if (count($request->input('contacts')) > 0) {
-                foreach ($request->input('contacts') as $contact) {
-                    $data = [
-                        'account_id' => Auth::user()->account_id,
-                        'author_id' => Auth::user()->id,
-                        'vault_id' => $vaultId,
-                        'journal_id' => $journalId,
-                        'post_id' => $postId,
-                        'contact_id' => $contact['id'],
-                    ];
-
-                    (new AddContactToPost)->execute($data);
-                }
-            }
+        foreach ($contactIds as $contactId) {
+            (new AddContactToPost)->execute([
+                'account_id' => Auth::user()->account_id,
+                'author_id' => Auth::id(),
+                'vault_id' => $vaultId,
+                'journal_id' => $journalId,
+                'post_id' => $postId,
+                'contact_id' => $contactId,
+            ]);
         }
 
         return response()->json([
