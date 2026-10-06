@@ -121,7 +121,10 @@ class PostController extends Controller
             'written_at' => Carbon::parse($request->input('date'))->format('Y-m-d'),
         ]);
 
-        $post->contacts()->detach();
+        $contactIds = collect($request->input('contacts'))->pluck('id');
+        $post->contacts()->detach(
+            $post->contacts()->whereNotIn('contacts.id', $contactIds)->pluck('contacts.id')
+        );
 
         if ($request->input('contacts')) {
             if (count($request->input('contacts')) > 0) {

@@ -6,6 +6,7 @@ use App\Domains\Vault\ManageJournals\Services\AddContactToPost;
 use App\Exceptions\NotEnoughPermissionException;
 use App\Models\Account;
 use App\Models\Contact;
+use App\Models\ContactFeedItem;
 use App\Models\Journal;
 use App\Models\Post;
 use App\Models\User;
@@ -32,6 +33,29 @@ class AddContactToPostTest extends TestCase
         ]);
 
         $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+    }
+
+    /** @test */
+    public function it_doesnt_log_the_contact_again_if_already_in_the_post(): void
+    {
+        $regis = $this->createUser();
+        $vault = $this->createVault($regis->account);
+        $vault = $this->setPermissionInVault($regis, Vault::PERMISSION_EDIT, $vault);
+        $contact = Contact::factory()->create(['vault_id' => $vault->id]);
+        $journal = Journal::factory()->create(['vault_id' => $vault->id]);
+        $post = Post::factory()->create([
+            'journal_id' => $journal->id,
+        ]);
+
+        $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+        $this->executeService($regis, $regis->account, $vault, $contact, $journal, $post);
+
+        $this->assertEquals(
+            1,
+            ContactFeedItem::where('contact_id', $contact->id)
+                ->where('action', ContactFeedItem::ACTION_ADDED_TO_POST)
+                ->count()
+        );
     }
 
     /** @test */

@@ -50,6 +50,10 @@ class AddContactToPost extends BaseService implements ServiceInterface
         $this->data = $data;
         $this->validate();
 
+        if ($this->isAlreadyInPost()) {
+            return $this->post;
+        }
+
         $this->post->contacts()->syncWithoutDetaching($this->contact);
 
         $this->createFeedItem();
@@ -67,6 +71,13 @@ class AddContactToPost extends BaseService implements ServiceInterface
 
         $this->post = $journal->posts()
             ->findOrFail($this->data['post_id']);
+    }
+
+    private function isAlreadyInPost(): bool
+    {
+        return $this->post->contacts()
+            ->where('contacts.id', $this->contact->id)
+            ->exists();
     }
 
     private function updateLastEditedDate(): void
